@@ -1,0 +1,8 @@
+Flask
+Flask-SocketIO
+eventlet # Atau gevent, salah satu dari ini dibutuhkan untuk Flask-SocketIO production server
+ultralytics
+opencv-python
+numpy
+Pillow
+python-dotenv # Opsional, untuk manajemen environment variable
