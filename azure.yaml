@@ -1,0 +1,8 @@
+name: yolov8-flask-app
+metadata:
+  template: yolov8-flask-app@0.0.1-beta
+services:
+  web:
+    project: .
+    language: python
+    host: appservice

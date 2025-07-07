@@ -9,6 +9,14 @@ import time
 import threading
 from io import BytesIO
 
+# Global variables
+camera = None
+output_frame = None
+frame_lock = threading.Lock()
+detection_counts = {}
+detection_active = False
+camera_index = 0  # ✅ TAMBAHAN: Variable untuk index kamera
+
 # Ensure templates directory exists
 os.makedirs('templates', exist_ok=True)
 
@@ -52,34 +60,32 @@ model = None
 def load_model():
     global model
     try:
-        # Check if running on Render or locally
+        # Prioritas loading model
         model_path = os.environ.get('MODEL_PATH', 'my_model1.pt')
-        model = YOLO(model_path)
-        print(f"Model loaded from {model_path}")
+        
+        # Cek apakah file model ada
+        if os.path.exists(model_path):
+            print(f"Loading custom model: {model_path}")
+            model = YOLO(model_path)
+            print(f"✅ Custom model loaded successfully: {model_path}")
+        else:
+            print(f"❌ Custom model {model_path} not found, trying fallback...")
+            # Fallback ke model standard
+            model = YOLO('yolov8n.pt')
+            print("✅ Fallback model loaded: yolov8n.pt")
+            
     except Exception as e:
         print(f"Error loading model: {e}")
-        # Fall back to a pre-trained YOLOv8 model from Ultralytics
+        # Final fallback
         try:
-            print("Attempting to load pre-trained YOLOv8n model...")
-            model = YOLO('yolov8n.pt')  # Load a smaller, standard YOLOv8 model
-            print("Pre-trained YOLOv8n model loaded successfully")
+            model = YOLO('yolov8n.pt')
+            print("✅ Final fallback model loaded")
         except Exception as e2:
-            print(f"Error loading fallback model: {e2}")
-            print("Using YOLO model constructor without loading weights")
-            # Create a new YOLO model instance without loading weights
-            from ultralytics.models.yolo import Model
-            model = Model('yolov8n.yaml')
+            print(f"All model loading failed: {e2}")
+            model = MockYOLO('fallback')
 
 # Load model in a separate thread to prevent blocking
 threading.Thread(target=load_model).start()
-
-# Global variables
-camera = None
-output_frame = None
-frame_lock = threading.Lock()
-detection_counts = {}
-detection_active = False
-camera_index = 0  # ✅ TAMBAHAN: Variable untuk index kamera
 
 def detect_objects(frame):
     """Detect objects in a frame using YOLOv8"""
@@ -155,29 +161,33 @@ def webcam_stream():
     """Capture frames from webcam"""
     global camera, output_frame, detection_active, camera_index
     
-    # ✅ MODIFIKASI: Gunakan camera_index yang dipilih user
-    camera = cv2.VideoCapture(camera_index)
-    
-    # Set resolution
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
-    while detection_active:
-        success, frame = camera.read()
-        if not success:
-            break
+    try:
+        # ✅ Gunakan camera_index yang dipilih user
+        camera = cv2.VideoCapture(camera_index)
         
-        # Update the output frame
-        with frame_lock:
-            output_frame = frame.copy()
+        # Set resolution
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
-        time.sleep(0.03)  # ~30 FPS
-    
-    # Release resources
-    if camera is not None:
-        camera.release()
+        while detection_active:
+            success, frame = camera.read()
+            if not success:
+                break
+            
+            # Update the output frame
+            with frame_lock:
+                output_frame = frame.copy()
+            
+            time.sleep(0.03)  # ~30 FPS
+            
+    except Exception as e:
+        print(f"Camera error: {e}")
+    finally:
+        # Release resources
+        if camera is not None:
+            camera.release()
 
-# ✅ TAMBAHAN: Endpoint untuk set kamera
+# ✅ Tambahkan endpoint untuk camera selection
 @app.route('/set_camera', methods=['POST'])
 def set_camera():
     global camera_index
@@ -189,7 +199,7 @@ def set_camera():
 @app.route('/available_cameras', methods=['GET'])
 def available_cameras():
     available = []
-    for idx in range(10):  # Check up to 10 camera indices
+    for idx in range(5):  # Check up to 5 camera indices
         cap = cv2.VideoCapture(idx)
         if cap.isOpened():
             available.append(idx)
@@ -257,9 +267,15 @@ def upload_file():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)})
 
+# Tambahkan di bagian akhir file app.py
 if __name__ == '__main__':
-    # Determine port for Render deployment or local development
-    port = int(os.environ.get('PORT', 5000))
+    # Determine port for Azure deployment
+    port = int(os.environ.get('PORT', 8000))
     
-    # Run the app
-    socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
+    # Run the app - PERBAIKAN untuk Azure
+    if 'WEBSITE_HOSTNAME' in os.environ:
+        # Running on Azure - gunakan socketio.run
+        socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    else:
+        # Running locally
+        socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
