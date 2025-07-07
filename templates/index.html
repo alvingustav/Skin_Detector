@@ -4,430 +4,386 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YOLOv8 Object Detection</title>
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <!-- Socket.IO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
-        .detection-container {
-            position: relative;
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-        .loader {
-            border-top-color: #3498db;
-            -webkit-animation: spinner 1.5s linear infinite;
-            animation: spinner 1.5s linear infinite;
+        
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        @-webkit-keyframes spinner {
-            0% { -webkit-transform: rotate(0deg); }
-            100% { -webkit-transform: rotate(360deg); }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
         }
-        @keyframes spinner {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
         }
-        .animate-pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        
+        .section h2 {
+            color: #555;
+            margin-top: 0;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        
+        /* ✅ TAMBAHAN: Style untuk camera selection */
+        .camera-selection {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border-radius: 5px;
+            border: 1px solid #b3d9ff;
         }
+        
+        .camera-selection label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .camera-selection select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
         .video-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        #videoFeed {
             max-width: 100%;
-            overflow: hidden;
-            position: relative;
+            border: 2px solid #007bff;
+            border-radius: 8px;
         }
-        .video-container img {
-            width: 100%;
-            max-height: 560px;
-            object-fit: contain;
+        
+        .stats {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
         }
-        .stats-container {
-            max-height: 300px;
-            overflow-y: auto;
+        
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background-color: #f8f9fa;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .upload-area:hover {
+            background-color: #e9ecef;
+        }
+        
+        .upload-area.dragover {
+            background-color: #cce5ff;
+            border-color: #0056b3;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .result-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .result-image {
+            max-width: 100%;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .alert {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <nav class="bg-blue-600 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <span class="flex items-center">
-                        <i class="fas fa-robot text-white text-2xl mr-3"></i>
-                        <span class="text-white text-xl font-bold">YOLOv8 Object Detection Web App</span>
-                    </span>
-                </div>
+<body>
+    <div class="container">
+        <h1>🎯 Real-time Object Detection using YOLOv8</h1>
+        
+        <!-- ✅ TAMBAHAN: Camera Selection Section -->
+        <div class="section">
+            <h2>📹 Camera Selection</h2>
+            <div class="camera-selection">
+                <label for="cameraSelect">Pilih Kamera:</label>
+                <select id="cameraSelect">
+                    <option value="0">Kamera 0 (Default)</option>
+                    <option value="1">Kamera 1</option>
+                    <option value="2">Kamera 2</option>
+                </select>
+                <button id="setCameraBtn">Pilih Kamera</button>
+                <button id="detectCamerasBtn">Deteksi Kamera Tersedia</button>
+            </div>
+            <div id="cameraStatus"></div>
+        </div>
+        
+        <!-- Webcam Detection Section -->
+        <div class="section">
+            <h2>📷 Webcam Detection</h2>
+            <p>Click "Start Stream" to begin webcam detection</p>
+            
+            <div class="video-container">
+                <img id="videoFeed" src="" alt="Video feed will appear here" style="display: none;">
+            </div>
+            
+            <button id="startBtn">Start Stream</button>
+            <button id="stopBtn" disabled>Stop Stream</button>
+            
+            <div class="stats">
+                <h3>Detection Statistics:</h3>
+                <div id="detectionStats">Start the stream to see detection statistics</div>
             </div>
         </div>
-    </nav>
-
-    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- Tabs for switching between webcam and upload -->
-        <div class="mb-4 border-b border-gray-200">
-            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center">
-                <li class="mr-2">
-                    <a href="#" id="webcam-tab" class="inline-block p-4 border-b-2 border-blue-600 rounded-t-lg active text-blue-600">
-                        <i class="fas fa-video mr-2"></i>Live Detection
-                    </a>
-                </li>
-                <li class="mr-2">
-                    <a href="#" id="upload-tab" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300">
-                        <i class="fas fa-upload mr-2"></i>Upload Image
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-        <!-- Webcam Section -->
-        <div id="webcam-section" class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-                <div>
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">Live Webcam Detection</h3>
-                    <p class="mt-1 max-w-2xl text-sm text-gray-500">Real-time object detection using your webcam</p>
-                </div>
-                <div>
-                    <button id="start-stream" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        <i class="fas fa-play mr-2"></i>Start Stream
-                    </button>
-                    <button id="stop-stream" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 hidden">
-                        <i class="fas fa-stop mr-2"></i>Stop Stream
-                    </button>
-                </div>
+        
+        <!-- Image Upload Section -->
+        <div class="section">
+            <h2>📤 Image Upload Detection</h2>
+            <p>Upload an image to detect objects</p>
+            
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <p><strong>Click here to select an image</strong></p>
+                <p>or drag and drop</p>
+                <p><small>PNG, JPG, JPEG up to 10MB</small></p>
             </div>
-            <div class="border-t border-gray-200">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-                    <div class="col-span-2 video-container detection-container">
-                        <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
-                            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
-                        </div>
-                        <img id="webcam-stream" src="" alt="Webcam stream will appear here" class="w-full rounded-lg border border-gray-300">
-                        <div id="webcam-placeholder" class="bg-gray-200 rounded-lg flex items-center justify-center h-96">
-                            <div class="text-center">
-                                <i class="fas fa-video text-gray-400 text-5xl mb-4"></i>
-                                <p class="text-gray-500">Click "Start Stream" to begin webcam detection</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <h4 class="font-semibold text-lg mb-4 text-gray-700">Detection Statistics</h4>
-                        <div id="stats-container" class="stats-container">
-                            <p class="text-gray-500 text-center py-8">Start the stream to see detection statistics</p>
-                        </div>
-                    </div>
-                </div>
+            
+            <input type="file" id="fileInput" accept="image/*">
+            
+            <div class="result-container">
+                <div id="uploadResult">Upload an image to see detection results</div>
             </div>
         </div>
-
-        <!-- Upload Section -->
-        <div id="upload-section" class="bg-white shadow overflow-hidden sm:rounded-lg mb-6 hidden">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Image Upload Detection</h3>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500">Upload an image to detect objects</p>
-            </div>
-            <div class="border-t border-gray-200">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-                    <div class="col-span-2">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                Upload Image
-                            </label>
-                            <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                                <div class="space-y-1 text-center">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                    <div class="flex text-sm text-gray-600">
-                                        <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                                            <span>Upload a file</span>
-                                            <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/*">
-                                        </label>
-                                        <p class="pl-1">or drag and drop</p>
-                                    </div>
-                                    <p class="text-xs text-gray-500">
-                                        PNG, JPG, JPEG up to 10MB
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="detection-container">
-                            <div id="upload-loading" class="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
-                                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
-                            </div>
-                            <div id="upload-result" class="hidden">
-                                <h4 class="font-medium text-lg mb-2">Detection Result:</h4>
-                                <img id="result-image" src="" alt="Detection result" class="w-full rounded-lg border border-gray-300">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <h4 class="font-semibold text-lg mb-4 text-gray-700">Upload Results</h4>
-                        <div id="upload-stats" class="stats-container">
-                            <p class="text-gray-500 text-center py-8">Upload an image to see detection results</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- About Section -->
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">About This App</h3>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500">YOLOv8 Object Detection deployed on Render.com</p>
-            </div>
-            <div class="border-t border-gray-200">
-                <dl>
-                    <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Features</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            <ul class="list-disc pl-5 space-y-1">
-                                <li>Real-time webcam object detection</li>
-                                <li>Image upload and analysis</li>
-                                <li>Object counting statistics</li>
-                                <li>Powered by YOLOv8 machine learning model</li>
-                            </ul>
-                        </dd>
-                    </div>
-                    <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">How to use</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            Switch between "Live Detection" for webcam analysis or "Upload Image" to process your photos. 
-                            For webcam detection, simply click "Start Stream" and allow camera access. 
-                            For image upload, select or drag & drop an image file to see the detection results.
-                        </dd>
-                    </div>
-                </dl>
-            </div>
+        
+        <div class="footer">
+            <p>🚀 YOLOv8 Object Detection with Camera Selection</p>
         </div>
     </div>
 
-    <footer class="bg-white">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-sm text-gray-500">
-                © 2025 YOLOv8 Object Detection Web App. Powered by Ultralytics YOLOv8.
-            </p>
-        </div>
-    </footer>
-
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Socket.IO connection
-            const socket = io();
-            let streamActive = false;
-
-            // DOM elements
-            const webcamTab = document.getElementById('webcam-tab');
-            const uploadTab = document.getElementById('upload-tab');
-            const webcamSection = document.getElementById('webcam-section');
-            const uploadSection = document.getElementById('upload-section');
-            const startStreamBtn = document.getElementById('start-stream');
-            const stopStreamBtn = document.getElementById('stop-stream');
-            const webcamStream = document.getElementById('webcam-stream');
-            const webcamPlaceholder = document.getElementById('webcam-placeholder');
-            const statsContainer = document.getElementById('stats-container');
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const fileUpload = document.getElementById('file-upload');
-            const uploadLoading = document.getElementById('upload-loading');
-            const uploadResult = document.getElementById('upload-result');
-            const resultImage = document.getElementById('result-image');
-            const uploadStats = document.getElementById('upload-stats');
-
-            // Tab switching
-            webcamTab.addEventListener('click', function(e) {
-                e.preventDefault();
-                webcamTab.classList.add('border-blue-600', 'text-blue-600');
-                uploadTab.classList.remove('border-blue-600', 'text-blue-600');
-                webcamSection.classList.remove('hidden');
-                uploadSection.classList.add('hidden');
-            });
-
-            uploadTab.addEventListener('click', function(e) {
-                e.preventDefault();
-                uploadTab.classList.add('border-blue-600', 'text-blue-600');
-                webcamTab.classList.remove('border-blue-600', 'text-blue-600');
-                uploadSection.classList.remove('hidden');
-                webcamSection.classList.add('hidden');
-                
-                // Stop stream if active when switching tabs
-                if (streamActive) {
-                    stopStream();
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // ✅ TAMBAHAN: Camera selection functionality
+        document.getElementById('setCameraBtn').onclick = function() {
+            const selectedCamera = document.getElementById('cameraSelect').value;
+            const statusDiv = document.getElementById('cameraStatus');
+            
+            fetch('/set_camera', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ camera_index: parseInt(selectedCamera) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusDiv.innerHTML = `<div class="alert alert-success">✅ Kamera berhasil di-set ke: Kamera ${data.camera_index}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="alert alert-error">❌ Gagal mengatur kamera</div>`;
                 }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
             });
-
-            // Start webcam stream
-            startStreamBtn.addEventListener('click', function() {
-                startStreamBtn.classList.add('hidden');
-                stopStreamBtn.classList.remove('hidden');
-                webcamPlaceholder.classList.add('hidden');
-                loadingIndicator.classList.remove('hidden');
-                
-                // Start the stream
-                webcamStream.src = "/video_feed";
-                webcamStream.classList.remove('hidden');
-                streamActive = true;
-                
-                setTimeout(() => {
-                    loadingIndicator.classList.add('hidden');
-                }, 2000);
-            });
-
-            // Stop webcam stream
-            stopStreamBtn.addEventListener('click', function() {
-                stopStream();
-            });
-
-            function stopStream() {
-                fetch('/stop_stream')
-                    .then(response => response.json())
-                    .then(data => {
-                        startStreamBtn.classList.remove('hidden');
-                        stopStreamBtn.classList.add('hidden');
-                        webcamStream.classList.add('hidden');
-                        webcamPlaceholder.classList.remove('hidden');
-                        webcamStream.src = "";
-                        streamActive = false;
-                        
-                        // Reset stats
-                        statsContainer.innerHTML = '<p class="text-gray-500 text-center py-8">Start the stream to see detection statistics</p>';
-                    });
-            }
-
-            // Socket.IO event for receiving detection statistics
-            socket.on('detection_update', function(data) {
-                if (!streamActive) return;
-                
-                updateStats(data.counts, statsContainer);
-            });
-
-            // File upload handling
-            fileUpload.addEventListener('change', function(e) {
-                if (e.target.files.length === 0) return;
-                
-                const file = e.target.files[0];
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                // Show loading
-                uploadLoading.classList.remove('hidden');
-                uploadResult.classList.add('hidden');
-                uploadStats.innerHTML = '<p class="text-gray-500 text-center py-8">Processing image...</p>';
-                
-                // Send to server
-                fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                })
+        };
+        
+        // ✅ TAMBAHAN: Detect available cameras
+        document.getElementById('detectCamerasBtn').onclick = function() {
+            const statusDiv = document.getElementById('cameraStatus');
+            statusDiv.innerHTML = '<div class="alert">🔍 Mendeteksi kamera tersedia...</div>';
+            
+            fetch('/available_cameras')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === 'success') {
-                        // Display result
-                        resultImage.src = 'data:image/jpeg;base64,' + data.image;
-                        uploadResult.classList.remove('hidden');
-                        
-                        // Update stats
-                        updateStats(data.counts, uploadStats);
+                    const select = document.getElementById('cameraSelect');
+                    select.innerHTML = '';
+                    
+                    if (data.cameras.length > 0) {
+                        data.cameras.forEach(function(idx) {
+                            const opt = document.createElement('option');
+                            opt.value = idx;
+                            opt.text = `Kamera ${idx}`;
+                            select.appendChild(opt);
+                        });
+                        statusDiv.innerHTML = `<div class="alert alert-success">✅ Ditemukan ${data.cameras.length} kamera: ${data.cameras.join(', ')}</div>`;
                     } else {
-                        uploadStats.innerHTML = `<p class="text-red-500 text-center py-8">Error: ${data.error}</p>`;
+                        statusDiv.innerHTML = '<div class="alert alert-error">❌ Tidak ada kamera yang terdeteksi</div>';
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    uploadStats.innerHTML = '<p class="text-red-500 text-center py-8">An error occurred while processing the image</p>';
-                })
-                .finally(() => {
-                    uploadLoading.classList.add('hidden');
+                    statusDiv.innerHTML = `<div class="alert alert-error">❌ Error mendeteksi kamera: ${error.message}</div>`;
                 });
-            });
-
-            // Drag and drop functionality
-            const dropZone = document.querySelector('.border-dashed');
-            
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, preventDefaults, false);
-            });
-            
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, highlight, false);
-            });
-            
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, unhighlight, false);
-            });
-            
-            function highlight() {
-                dropZone.classList.add('border-blue-500', 'bg-blue-50');
-            }
-            
-            function unhighlight() {
-                dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-            }
-            
-            dropZone.addEventListener('drop', handleDrop, false);
-            
-            function handleDrop(e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                
-                if (files.length > 0) {
-                    fileUpload.files = files;
-                    fileUpload.dispatchEvent(new Event('change'));
-                }
-            }
-
-            // Helper function to update stats display
-            function updateStats(counts, container) {
-                if (Object.keys(counts).length === 0) {
-                    container.innerHTML = '<p class="text-gray-500 text-center py-8">No objects detected</p>';
-                    return;
-                }
-                
-                let html = `
-                    <div class="mb-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-lg font-bold text-blue-600">Total Objects:</span>
-                            <span class="text-lg font-bold">${Object.values(counts).reduce((a, b) => a + b, 0)}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: 100%"></div>
-                        </div>
-                    </div>
-                    <div class="space-y-3">
-                `;
-                
-                // Sort objects by count (descending)
-                const sortedObjects = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-                
-                sortedObjects.forEach(([objectName, count]) => {
-                    // Generate a color based on the object name (simple hash)
-                    const hash = objectName.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-                    const hue = hash % 360;
-                    
-                    html += `
-                        <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <span class="text-sm font-medium">${objectName}</span>
-                                <span class="text-sm font-medium">${count}</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full" 
-                                     style="width: ${Math.min(count * 10, 100)}%"></div>
-                            </div>
-                        </div>
-                    `;
+        };
+        
+        // Webcam controls
+        document.getElementById('startBtn').onclick = function() {
+            document.getElementById('videoFeed').src = '/video_feed?' + new Date().getTime();
+            document.getElementById('videoFeed').style.display = 'block';
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        };
+        
+        document.getElementById('stopBtn').onclick = function() {
+            fetch('/stop_stream')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('videoFeed').style.display = 'none';
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').disabled = true;
+                    document.getElementById('detectionStats').innerHTML = 'Stream stopped';
                 });
-                
-                html += '</div>';
-                container.innerHTML = html;
+        };
+        
+        // Socket.IO event listeners
+        socket.on('detection_update', function(data) {
+            const statsDiv = document.getElementById('detectionStats');
+            if (Object.keys(data.counts).length > 0) {
+                let statsHTML = '<ul>';
+                for (const [object, count] of Object.entries(data.counts)) {
+                    statsHTML += `<li><strong>${object}</strong>: ${count}</li>`;
+                }
+                statsHTML += '</ul>';
+                statsDiv.innerHTML = statsHTML;
+            } else {
+                statsDiv.innerHTML = 'No objects detected';
             }
         });
+        
+        // File upload functionality
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const uploadResult = document.getElementById('uploadResult');
+        
+        fileInput.addEventListener('change', handleFileUpload);
+        
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileUpload();
+            }
+        });
+        
+        function handleFileUpload() {
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            uploadResult.innerHTML = '<div class="alert">🔄 Processing image...</div>';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    let resultHTML = '<h3>✅ Detection Results:</h3>';
+                    resultHTML += `<img src="data:image/jpeg;base64,${data.image}" class="result-image" alt="Detection result">`;
+                    
+                    if (Object.keys(data.counts).length > 0) {
+                        resultHTML += '<h4>Objects detected:</h4><ul>';
+                        for (const [object, count] of Object.entries(data.counts)) {
+                            resultHTML += `<li><strong>${object}</strong>: ${count}</li>`;
+                        }
+                        resultHTML += '</ul>';
+                    } else {
+                        resultHTML += '<p>No objects detected in this image.</p>';
+                    }
+                    
+                    uploadResult.innerHTML = resultHTML;
+                } else {
+                    uploadResult.innerHTML = `<div class="alert alert-error">❌ Error: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                uploadResult.innerHTML = `<div class="alert alert-error">❌ Upload failed: ${error.message}</div>`;
+            });
+        }
+        
+        // ✅ TAMBAHAN: Auto-detect cameras on page load
+        window.onload = function() {
+            document.getElementById('detectCamerasBtn').click();
+        };
     </script>
 </body>
 </html>
