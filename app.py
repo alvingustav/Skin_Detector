@@ -25,6 +25,7 @@ try:
 except ImportError as e:
     print(f"Error importing YOLO: {e}")
     print("Please install ultralytics package: pip install ultralytics==8.0.145")
+    
     # Provide a mock implementation for testing UI without model
     class MockYOLO:
         def __init__(self, model_path):
@@ -47,6 +48,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Load YOLOv8 model
 model = None
+
 def load_model():
     global model
     try:
@@ -77,6 +79,7 @@ output_frame = None
 frame_lock = threading.Lock()
 detection_counts = {}
 detection_active = False
+camera_index = 0  # ✅ TAMBAHAN: Variable untuk index kamera
 
 def detect_objects(frame):
     """Detect objects in a frame using YOLOv8"""
@@ -118,6 +121,7 @@ def detect_objects(frame):
         
         detection_counts = counts
         return frame, counts
+        
     except Exception as e:
         print(f"Error in detection: {e}")
         return frame, {}
@@ -149,10 +153,10 @@ def generate_frames():
 
 def webcam_stream():
     """Capture frames from webcam"""
-    global camera, output_frame, detection_active
+    global camera, output_frame, detection_active, camera_index
     
-    # Initialize webcam
-    camera = cv2.VideoCapture(0)
+    # ✅ MODIFIKASI: Gunakan camera_index yang dipilih user
+    camera = cv2.VideoCapture(camera_index)
     
     # Set resolution
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -173,6 +177,25 @@ def webcam_stream():
     if camera is not None:
         camera.release()
 
+# ✅ TAMBAHAN: Endpoint untuk set kamera
+@app.route('/set_camera', methods=['POST'])
+def set_camera():
+    global camera_index
+    data = request.get_json()
+    camera_index = data.get('camera_index', 0)
+    return jsonify({'status': 'success', 'camera_index': camera_index})
+
+# ✅ TAMBAHAN: Endpoint untuk deteksi kamera yang tersedia
+@app.route('/available_cameras', methods=['GET'])
+def available_cameras():
+    available = []
+    for idx in range(10):  # Check up to 10 camera indices
+        cap = cv2.VideoCapture(idx)
+        if cap.isOpened():
+            available.append(idx)
+            cap.release()
+    return jsonify({'cameras': available})
+
 @app.route('/')
 def index():
     """Serve the index page"""
@@ -191,15 +214,13 @@ def video_feed():
         threading.Thread(target=generate_frames).start()
     
     return Response(generate_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/stop_stream', methods=['GET'])
 def stop_stream():
     """Stop the webcam stream"""
     global detection_active, camera
-    
     detection_active = False
-    
     return jsonify({'status': 'success'})
 
 @app.route('/upload', methods=['POST'])
@@ -209,7 +230,6 @@ def upload_file():
         return jsonify({'status': 'error', 'error': 'No file part'})
     
     file = request.files['file']
-    
     if file.filename == '':
         return jsonify({'status': 'error', 'error': 'No selected file'})
     
@@ -233,7 +253,7 @@ def upload_file():
             'image': img_base64,
             'counts': counts
         })
-    
+        
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)})
 
